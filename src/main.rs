@@ -241,6 +241,8 @@ fn main() {
         };
         loop {
             let mut inp = String::new();
+            print!(">>>");
+            stdout().flush().unwrap();
             stdin().read_line(&mut inp).unwrap();
             if inp.trim() == String::from("exit") {
                 exit(0);
