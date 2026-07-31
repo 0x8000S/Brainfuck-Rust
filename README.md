@@ -16,7 +16,7 @@
 ## 安装
 
 ```bash
-https://github.com/0x8000S/Brainfuck-Rust.git
+git clone https://github.com/0x8000S/Brainfuck-Rust.git
 cd Brainfuck
 cargo build --release
 ```
