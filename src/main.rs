@@ -89,8 +89,21 @@ impl Token {
             },
             Token::LEFTW(v) => {
                 // println!("Into while");
-                while map.get() != 0 {
-                    for t in v.iter() {
+                let mut stop_num = 0;
+                if v.len() >= 1 {
+                    match v[0] {
+                        Token::NUM(val) => stop_num = val,
+                        _ => ()
+                    }
+                }
+                while map.get() != stop_num {
+                    for (i, t) in v.iter().enumerate() {
+                        if i == 0 {
+                            match t {
+                                Token::NUM(v) => continue,
+                                _ => ()
+                            }
+                        }
                         t.exec(&mut *map);
                         // dbg!(&map);
                     }
