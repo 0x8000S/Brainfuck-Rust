@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::{stdin, stdout, Read, Write};
 use std::process::exit;
 use std::fs;
@@ -5,7 +6,9 @@ use std::fs;
 #[derive(Debug)]
 struct EnvVec {
     data: Vec<u8>,
-    index: usize
+    index: usize,
+    stack: Vec<u8>,
+    func: HashMap<String, Vec<Token>>
 }
 
 impl EnvVec {
@@ -49,6 +52,22 @@ impl EnvVec {
     fn right_move(&mut self) {
         self.data[self.index] = self.data[self.index].wrapping_div(2);
     }
+    fn push_stack(&mut self) {
+        self.stack.push(self.data[self.index])
+    }
+    fn pop_stack(&mut self) {
+        self.data[self.index] = self.stack.pop().unwrap_or_else(|| 0);
+    }
+    fn reg_func(&mut self, name: String, tokens: Vec<Token>) {
+        self.func.insert(name, tokens);
+    }
+    fn get_func(&self, name: &String) -> Vec<Token> {
+        let ret = self.func.get(name);
+        match ret { 
+            Some(val) => val.clone(),
+            None => vec![]
+        }
+    }
 }
 #[derive(Clone, Debug, PartialEq)]
 enum Token {
@@ -66,7 +85,13 @@ enum Token {
     BITNOT,
     LM,
     RM,
-    INP
+    INP,
+    PUSH,
+    POP,
+    LEFTPAR,
+    RIGHTPAR,
+    FUNC(String, Vec<Token>),
+    CALLFUNC(String)
 }
 impl Token {
     fn exec(&self, map: &mut EnvVec) {
@@ -120,7 +145,17 @@ impl Token {
             },
             Token::LM => map.left_move(),
             Token::RM => map.right_move(),
-            Token::INP => println!("{}", map.get())
+            Token::INP => println!("{}", map.get()),
+            Token::PUSH => map.push_stack(),
+            Token::POP => map.pop_stack(),
+            Token::LEFTPAR => (),
+            Token::RIGHTPAR => (),
+            Token::FUNC(name, tokens) => map.reg_func(name.clone(), tokens.clone()),
+            Token::CALLFUNC(name) => {
+                for t in map.get_func(name) {
+                    t.exec(map);
+                }
+            }
         }
     }
 }
@@ -145,6 +180,12 @@ impl CommandContent {
         }
         ret
     }
+    fn peek(&self) -> Option<String> {
+        match self.data.get(self.index) {
+            Some(val) => Some(val.clone()),
+            None => None
+        }
+    }
 }
 
 fn get_len_token(toks: &Vec<Token>) -> usize {
@@ -163,11 +204,6 @@ fn get_len_token(toks: &Vec<Token>) -> usize {
 fn parse(command: &str) -> Vec<Token> {
     let mut tokens: Vec<Token> = Vec::new();
     let commands: Vec<String> = command.chars()
-        .filter(
-            |x|
-                matches!(x, '>' | '<' | '+' | '-' |
-                    '.' | ',' | '[' | ']' | '0'..='9' | '!' |
-                '=' | '~' | '{' | '}'))
         .map(|x| x.to_string())
         .collect();
     // dbg!(&commands);
@@ -234,7 +270,67 @@ fn parse(command: &str) -> Vec<Token> {
             "{" => Token::LM,
             "}" => Token::RM,
             "!" => Token::INP,
-            _ => Token::NONE
+            ":" => Token::PUSH,
+            ";" => Token::POP,
+            "(" => Token::LEFTPAR,
+            ")" => {
+                tokens.push(Token::RIGHTPAR);
+                return tokens;
+            }
+            "'" => {
+                let mut func_name = String::new();
+                let mut func_body = Vec::new();
+                loop {
+                    match command_iter.next() {
+                        Some(val) => {
+                            if parse(val.as_str())[0] == Token::LEFTPAR {
+                                let ret = parse(command_iter.to_string().as_str());
+                                // dbg!(&ret);
+                                command_iter.index += get_len_token(&ret);
+                                if !ret.contains(&Token::RIGHTPAR) {
+                                    eprintln!("未找到闭合的()!");
+                                    exit(-3);
+                                }
+                                for t in ret {
+                                    func_body.push(t);
+                                }
+                                break;
+                            } else {
+                                func_name.push_str(val.as_str());
+                            }
+                        },
+                        None => break
+                    }
+                }
+                Token::FUNC(func_name, func_body)
+            }
+            _ => {
+                let mut call_func_name = String::new();
+                call_func_name.push_str(t.as_str());
+                loop {
+                    match command_iter.peek() {
+                        Some(val) => match parse(val.as_str())[0] {
+                            Token::CALLFUNC(_) => (),
+                            _ => break
+                        },
+                        None => break
+                    }
+                    match command_iter.next() {
+                        Some(val) => {
+                            // match parse(val.as_str())[0] {
+                            //     Token::CALLFUNC(_) => (),
+                            //     _ => {
+                            //         command_iter.index -= 1;
+                            //         continue
+                            //     }
+                            // }
+                            call_func_name.push_str(val.as_str());
+                        },
+                        None => break
+                    }
+                }
+                Token::CALLFUNC(call_func_name)
+            }
         };
         tokens.push(curr_com);
     }
@@ -250,7 +346,9 @@ fn main() {
     if args.len() == 1 {
         let mut env = EnvVec{
             data: vec![0],
-            index: 0
+            index: 0,
+            stack: vec![],
+            func: HashMap::new()
         };
         loop {
             let mut inp = String::new();
@@ -265,12 +363,13 @@ fn main() {
         }
     } else {
         let file = &args[1];
-        let content = String::new();
         match fs::read_to_string(file) {
             Ok(val) => {
                 let mut env = EnvVec{
                     data: vec![0],
-                    index: 0
+                    index: 0,
+                    stack: vec![],
+                    func: HashMap::new()
                 };
                 run(val.as_str(), &mut env);
             },
@@ -280,6 +379,15 @@ fn main() {
             }
         }
     }
+    // let test = "'b(--)'a(+++b)a!";
+    // // 输出的结果是 1
+    // let mut env = EnvVec {
+    //     data: vec![0],
+    //     index: 0,
+    //     stack: vec![],
+    //     func: HashMap::new()
+    // };
+    // run(test, &mut env);
 }
 
 fn run(test: &str, env: &mut EnvVec) {
