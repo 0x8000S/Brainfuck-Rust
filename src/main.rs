@@ -456,7 +456,7 @@ fn main() {
             if inp.trim() == String::from("exit") {
                 exit(0);
             }
-            run(inp.as_str(), &mut env);
+            run(inp.trim(), &mut env);
             println!();
         }
     } else {
