@@ -268,7 +268,7 @@ fn parse(command: &str) -> (Vec<Token>, usize) {
             "[" => {
                 let mut p_command = Vec::new();
                 // dbg!(&iter);
-                dbg!(&command_iter);
+                // dbg!(&command_iter);
                 // println!("ZSX{}", iter.to_string());
                 let curr = parse(command_iter.to_string().as_str()).clone();
                 // command_iter.index += get_len_token(&curr.0);
