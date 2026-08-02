@@ -1,0 +1,14 @@
+# 数学运算演示
+# 展示数字字面量、自增、左移、右移
+
+`prt(!)
+`inc(+)
+`double({)
+`half(})
+
+5|prt|          # 输出 5
+inc|prt|        # 5+1 = 6
+double|prt|     # 6×2 = 12
+double|prt|     # 12×2 = 24
+half|prt|       # 24÷2 = 12
+half|prt       # 12÷2 = 6
